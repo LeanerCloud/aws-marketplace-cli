@@ -1,13 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -52,7 +53,7 @@ func listCmd() *cobra.Command {
 					return err
 				}
 				for _, entity := range resp.EntitySummaryList {
-					fmt.Printf("Product: %s \t EntityID: %s\n", *entity.Name, *entity.EntityId)
+					fmt.Printf("%s\n", *entity.Name)
 				}
 				if resp.NextToken == nil {
 					break
@@ -66,20 +67,29 @@ func listCmd() *cobra.Command {
 }
 
 func dumpCmd() *cobra.Command {
-	var entityID string
+	var productName string
+
 	cmd := &cobra.Command{
-		Use:   "dump [entity ID]",
+		Use:   "dump [product name]",
 		Short: "Dump marketplace catalog data for a product to a YAML file",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			entityID = args[0]
+			productName = args[0]
+
 			cfg, err := config.LoadDefaultConfig(context.Background())
 			if err != nil {
 				return err
 			}
+
 			svc := marketplacecatalog.NewFromConfig(cfg)
-			resp, err := svc.DescribeEntity(context.TODO(), &marketplacecatalog.DescribeEntityInput{
-				EntityId: &entityID,
+
+			entityID, err := getProductEntityID(svc, &productName)
+			if err != nil {
+				return err
+			}
+
+			resp, err := svc.DescribeEntity(context.Background(), &marketplacecatalog.DescribeEntityInput{
+				EntityId: entityID,
 				Catalog:  aws.String("AWSMarketplace"),
 			})
 			if err != nil {
@@ -91,81 +101,135 @@ func dumpCmd() *cobra.Command {
 				return err
 			}
 
-			filename := fmt.Sprintf("%s_%s.yaml", details.Description.ProductTitle, entityID)
+			fileName := getYamlFilePath(productName)
 			data, err := yaml.Marshal(details)
 			if err != nil {
 				return err
 			}
-			if err := ioutil.WriteFile(filename, data, 0644); err != nil {
+
+			// Check if file has changed before writing to it
+			if _, err := os.Stat(fileName); err == nil {
+				existingData, err := ioutil.ReadFile(fileName)
+				if err != nil {
+					return err
+				}
+				if bytes.Equal(existingData, data) {
+					fmt.Printf("Data for entity %s has not changed %s \n", *entityID, data)
+					return nil
+				}
+			}
+
+			if err := ioutil.WriteFile(fileName, data, 0644); err != nil {
 				return err
 			}
-			fmt.Printf("Data written to %s\n", filename)
+
+			fmt.Printf("Data written to %s\n", fileName)
 			return nil
 		},
 	}
+
 	return cmd
 }
 
-type Entity map[string]interface{}
+func getYamlFilePath(productName string) string {
+	dirName := fmt.Sprintf("products/%s", productName)
+	os.MkdirAll(dirName, 0755)
+	return filepath.Join(dirName, "description.yaml")
+}
+
+func getProductEntityID(svc *marketplacecatalog.Client, productName *string) (*string, error) {
+
+	input := &marketplacecatalog.ListEntitiesInput{
+		Catalog:    aws.String("AWSMarketplace"),
+		EntityType: aws.String("ContainerProduct"),
+	}
+	res, err := svc.ListEntities(context.Background(), input)
+	if err != nil {
+		return nil, err
+	}
+	if len(res.EntitySummaryList) == 0 {
+		return nil, fmt.Errorf("could not find entity ID for product %s", *productName)
+	}
+	for _, entity := range res.EntitySummaryList {
+		if *entity.Name == *productName {
+			return entity.EntityId, nil
+		}
+	}
+
+	return nil, errors.New("entity not found")
+}
 
 func updateDescriptionCmd() *cobra.Command {
-	var printFlag bool
+	var noOp bool
 	cmd := &cobra.Command{
-		Use:   "update-description [filename]",
-		Short: "Create a changeset updating the product description information to match the data from the given YAML file",
+		Use:   "update-description [product name]",
+		Short: "Push a changeset created by a YAML file to the marketplace catalog API",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			filename := args[0]
-			entityID := strings.Split(strings.TrimSuffix(filepath.Base(filename), ".yaml"), "_")[1]
-
-			fmt.Println("Updating product")
+			productName := args[0]
 
 			cfg, err := config.LoadDefaultConfig(context.Background())
 			if err != nil {
-				return err
-			}
-			svc := marketplacecatalog.NewFromConfig(cfg)
-			data, err := ioutil.ReadFile(filename)
-			if err != nil {
-				return err
-			}
-			var pd Details
-			if err := yaml.Unmarshal(data, &pd); err != nil {
-				return err
-			}
-			detailsJSON, err := json.Marshal(pd.Description)
-			if err != nil {
-				return err
-			}
-			//detailsJSONString := fmt.Sprintf("%q", string(detailsJSON))
-			detailsJSONString := string(detailsJSON)
-			if printFlag {
-				fmt.Println(detailsJSONString)
-				return nil
+				return errors.New("couldn't load default config")
 			}
 
+			svc := marketplacecatalog.NewFromConfig(cfg)
+
+			entityID, err := getProductEntityID(svc, &productName)
+
+			if err != nil {
+				return err
+			}
+
+			// Read the YAML file
+			data, err := ioutil.ReadFile(getYamlFilePath(productName))
+			if err != nil {
+				return err
+			}
+			var details EntityDetails
+			if err := yaml.Unmarshal(data, &details); err != nil {
+				return err
+			}
+
+			detailsBytes, err := json.Marshal(details.Description)
+			if err != nil {
+				return err
+			}
+
+			// Create a changeset to update the product
+			change := types.Change{
+				ChangeType: aws.String("UpdateInformation"),
+				ChangeName: aws.String("UpdateProductInformation"),
+				Entity: &types.Entity{
+					Type:       aws.String("ContainerProduct@1.0"),
+					Identifier: entityID,
+				},
+				Details: aws.String(string(detailsBytes)),
+			}
 			changeSetInput := &marketplacecatalog.StartChangeSetInput{
 				Catalog: aws.String("AWSMarketplace"),
 				ChangeSet: []types.Change{
-					{
-						ChangeName: aws.String("UpdateProductInformation"),
-						ChangeType: aws.String("UpdateInformation"),
-						Entity: &types.Entity{
-							Type:       aws.String("ContainerProduct@1.0"),
-							Identifier: aws.String(entityID),
-						},
-						Details: aws.String(detailsJSONString),
-					},
+					change,
 				},
 			}
-			_, err = svc.StartChangeSet(context.Background(), changeSetInput)
-			if err != nil {
-				return err
+
+			if noOp {
+				changeSetJSON, _ := json.MarshalIndent(changeSetInput, "", "  ")
+				fmt.Println(string(changeSetJSON))
+				return nil
 			}
-			fmt.Println("Changeset created successfully")
+
+			_, err = svc.StartChangeSet(context.TODO(), changeSetInput)
+
+			if err != nil {
+				return errors.New("could not start change set: " + err.Error())
+			}
+
+			fmt.Printf("Changeset created for product %s with entity ID %s\n", productName, *entityID)
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&printFlag, "print", false, "Print escaped JSON string to stdout instead of creating a changeset")
+
+	cmd.Flags().BoolVar(&noOp, "no-op", false, "Print the changeset JSON to stdout without creating the changeset")
 	return cmd
 }
