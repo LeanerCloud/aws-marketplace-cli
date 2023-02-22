@@ -56,11 +56,11 @@ description:
 
 - Once you have edited the YAML configuration, you can apply it to your AWS Marketplace product:
 
-$ ./aws-marketplace-cli update-description AutoSpotting_9ea9ac37-bdfe-49aa-a756-e9fde98cc210.yaml
+$ aws-marketplace-cli update-description AutoSpotting_9ea9ac37-bdfe-49aa-a756-e9fde98cc210.yaml
 Updating product
 Changeset created successfully
 
-- Feel free to persist this file in your source control.
+- Feel free to persist this YAML file in your source control, and maybe maintain it as a private fork.
 
 
 ## Current Status
