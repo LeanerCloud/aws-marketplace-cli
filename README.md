@@ -56,9 +56,11 @@ description:
 
 - Once you have edited the YAML configuration, you can apply it to your AWS Marketplace product:
 
+```bash
 $ aws-marketplace-cli update-description AutoSpotting
 Updating product
 Changeset created successfully
+```
 
 - Feel free to persist this YAML file in your source control, and maybe maintain it as a private fork.
 
