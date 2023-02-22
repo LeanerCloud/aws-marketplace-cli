@@ -23,21 +23,21 @@ go install github.com/LeanerCloud/aws-marketplace-cli
 
 ```bash
 $ aws-marketplace-cli list ContainerProduct
-Product: AutoSpotting    EntityID: 9ea9ac37-bdfe-49aa-a756-e9fde98cc210
-Product: EBS Optimizer   EntityID: a8ee4609-273e-4666-8dcc-fc101bff1618
+AutoSpotting
+EBS Optimizer
 ```
 
 - Dump a given product to a YAML file in the current working directory:
 
 ```bash
-$ aws-marketplace-cli dump 9ea9ac37-bdfe-49aa-a756-e9fde98cc210
-Data written to AutoSpotting_9ea9ac37-bdfe-49aa-a756-e9fde98cc210.yaml
+$ aws-marketplace-cli dump AutoSpotting
+Data written to products/AutoSpotting/description.yaml
 ````
 
 - Have a look at the YAML configuration, and feel free to edit it at will with your favorite editor.
 
 ``` bash
-$ cat AutoSpotting_9ea9ac37-bdfe-49aa-a756-e9fde98cc210.yaml
+$ cat products/AutoSpotting/description.yaml
 description:
   highlights:
   - Up to 90% cost savings by automatically replacing On-Demand AutoScaling group
@@ -56,7 +56,7 @@ description:
 
 - Once you have edited the YAML configuration, you can apply it to your AWS Marketplace product:
 
-$ aws-marketplace-cli update-description AutoSpotting_9ea9ac37-bdfe-49aa-a756-e9fde98cc210.yaml
+$ aws-marketplace-cli update-description AutoSpotting
 Updating product
 Changeset created successfully
 
@@ -71,9 +71,7 @@ Changeset created successfully
 ## Potential future work (contributions welcome!)
 
 - Add support for managing new versions of the product and potentially other changes.
-- Maybe reorganize the product YAML data into a subdirectory.
 - Add support for managing AMI products
-- Prettier display of the product listing
 
 ## License
 
