@@ -31,13 +31,13 @@ EBS Optimizer
 
 ```bash
 $ aws-marketplace-cli dump AutoSpotting
-Data written to products/AutoSpotting/description.yaml
+Data written to data/AutoSpotting/description.yaml
 ````
 
 - Have a look at the YAML configuration, and feel free to edit it at will with your favorite editor.
 
 ``` bash
-$ cat products/AutoSpotting/description.yaml
+$ cat data/AutoSpotting/description.yaml
 description:
   highlights:
   - Up to 90% cost savings by automatically replacing On-Demand AutoScaling group
@@ -65,15 +65,23 @@ Changeset created successfully
 - Feel free to persist this YAML file in your source control, and maybe maintain it as a private fork.
 
 
-## Current Status
+## Current Features
 
-- supports only updating the basic product information.
+- dump the product details in a YAML file
+- update the product details from locally changed YAML file
+- dump all versions of a product to distinct YAML files
+- clone an existing version into a new version, by copying its YAML file locally
+- create a new version on the AWS Marketplace from a local YAML file
 
 
 ## Potential future work (contributions welcome!)
 
-- Add support for managing new versions of the product and potentially other changes.
+- Apply changes to a published version is its local YAML file has been changed
+- make the clone replace the existing version string inside the cloned YAML file content
+- List remote versions
+- Unpublish a remote version
 - Add support for managing AMI products
+- add unit tests for all functionality
 
 ## License
 
