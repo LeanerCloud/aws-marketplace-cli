@@ -56,18 +56,18 @@ type EntityDetails struct {
 		} `json:"DeliveryOptions"`
 	} `json:"Versions"`
 	Description struct {
-		Highlights         []string `json:"Highlights"`
-		LongDescription    string   `json:"LongDescription"`
-		ProductCode        string   `json:"ProductCode"`
-		Manufacturer       any      `json:"Manufacturer"`
-		ProductState       string   `json:"ProductState"`
-		Visibility         string   `json:"Visibility"`
-		AssociatedProducts any      `json:"AssociatedProducts"`
-		Sku                any      `json:"Sku"`
-		SearchKeywords     []string `json:"SearchKeywords"`
-		ProductTitle       string   `json:"ProductTitle"`
-		ShortDescription   string   `json:"ShortDescription"`
-		Categories         []string `json:"Categories"`
+		Highlights      []string `json:"Highlights"`
+		LongDescription string   `json:"LongDescription"`
+		// ProductCode        string   `json:"ProductCode"`
+		// Manufacturer       any      `json:"Manufacturer"`
+		// ProductState string `json:"ProductState"`
+		// Visibility   string `json:"Visibility"`
+		// AssociatedProducts any      `json:"AssociatedProducts"`
+		Sku              any      `json:"Sku"`
+		SearchKeywords   []string `json:"SearchKeywords"`
+		ProductTitle     string   `json:"ProductTitle"`
+		ShortDescription string   `json:"ShortDescription"`
+		Categories       []string `json:"Categories"`
 	} `json:"Description"`
 	Targeting struct {
 		PositiveTargeting struct {
@@ -190,6 +190,8 @@ func dumpProduct(productName string) error {
 	if err := json.Unmarshal([]byte(*resp.Details), &details); err != nil {
 		return err
 	}
+
+	details.Versions = nil
 
 	fileName := getYamlFilePath(productName, "", "description")
 	data, err := yaml.Marshal(details)
