@@ -247,6 +247,7 @@ func pushNewVersion(productName string, noOp bool, version string) error {
 		ChangeSet: []types.Change{
 			change,
 		},
+		ChangeSetName: aws.String(fmt.Sprintf("Push % version %s", productName, version)),
 	}
 
 	if noOp {
@@ -263,32 +264,34 @@ func pushNewVersion(productName string, noOp bool, version string) error {
 	fmt.Printf("Changeset created for product %s with entity ID %s\n", productName, *entityID)
 	return nil
 }
+
 func cloneProductVersion(productName, srcVersion, dstVersion string) error {
 	srcFilePath := getYamlFilePath(productName, "versions", srcVersion)
 	dstFilePath := getYamlFilePath(productName, "versions", dstVersion)
 
-	if _, err := os.Stat(dstFilePath); err == nil {
-		existingData, err := ioutil.ReadFile(dstFilePath)
-		if err != nil {
-			return err
-		}
+	existingData, err := ioutil.ReadFile(dstFilePath)
+	if err == nil {
 		srcData, err := ioutil.ReadFile(srcFilePath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read source file: %v", err)
 		}
 		if bytes.Equal(existingData, srcData) {
 			fmt.Printf("Data for product %s version %s has not changed\n", productName, srcVersion)
 			return nil
 		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to read destination file: %v", err)
 	}
 
 	input, err := ioutil.ReadFile(srcFilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read source file: %v", err)
 	}
-	err = ioutil.WriteFile(dstFilePath, input, 0644)
+	// Replace srcVersion with dstVersion inside the YAML content
+	output := bytes.Replace(input, []byte(srcVersion), []byte(dstVersion), -1)
+	err = ioutil.WriteFile(dstFilePath, output, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write destination file: %v", err)
 	}
 
 	fmt.Printf("Data written to %s\n", dstFilePath)

@@ -263,6 +263,7 @@ func updateProduct(productName string, noOp bool) error {
 		ChangeSet: []types.Change{
 			change,
 		},
+		ChangeSetName: aws.String("Updated product Information for " + productName),
 	}
 
 	if noOp {
