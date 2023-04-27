@@ -184,8 +184,6 @@ func dumpProduct(productName string) error {
 		return err
 	}
 
-	fmt.Printf("DescribeEntity details: #######%s########", *resp.Details)
-
 	var details EntityDetails
 	if err := json.Unmarshal([]byte(*resp.Details), &details); err != nil {
 		return err
