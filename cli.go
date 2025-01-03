@@ -59,8 +59,18 @@ func dumpProductCmd() *cobra.Command {
 func listProductsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [product-type]",
-		Short: "List all my AWS Marketplace products of a given type, such as ContainerProduct",
-		Args:  cobra.ExactArgs(1),
+		Short: "List all my AWS Marketplace products of a given type, or 'all' for all types",
+		Long: `List AWS Marketplace products. You can specify a product type or 'all'.
+Valid product types are:
+  - ServerProduct
+  - ContainerProduct
+  - DataProduct
+  - MachinelearningProduct
+  - SaaSProduct
+  - ServiceProduct
+  - SolutionProduct
+  - SupportProduct`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			productType := args[0]
 			return listProducts(productType)
