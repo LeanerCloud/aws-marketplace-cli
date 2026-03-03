@@ -119,17 +119,7 @@ func listProducts(requestedType string) error {
 
 	svc := marketplacecatalog.NewFromConfig(cfg)
 
-	// Define all valid product types
-	productTypes := []string{
-		"ServerProduct",
-		"ContainerProduct",
-		"DataProduct",
-		"MachinelearningProduct",
-		"SaaSProduct",
-		"ServiceProduct",
-		"SolutionProduct",
-		"SupportProduct",
-	}
+	productTypes := allProductTypes
 
 	// If a specific type is requested, only list that type
 	if requestedType != "all" {
@@ -227,6 +217,57 @@ func getProductEntityID(svc *marketplacecatalog.Client, productName *string, pro
 	return nil, fmt.Errorf("entity not found: %s of type %s", *productName, productType)
 }
 
+var allProductTypes = []string{
+	"ServerProduct",
+	"ContainerProduct",
+	"DataProduct",
+	"MachinelearningProduct",
+	"SaaSProduct",
+	"ServiceProduct",
+	"SolutionProduct",
+	"SupportProduct",
+}
+
+func findProduct(svc *marketplacecatalog.Client, productName string) (entityID string, productType string, err error) {
+	var lastErr error
+	for _, pt := range allProductTypes {
+		eid, e := getProductEntityID(svc, &productName, pt)
+		if e == nil {
+			return *eid, pt, nil
+		}
+		lastErr = e
+	}
+	return "", "", fmt.Errorf("could not find product %s in any supported type: %v", productName, lastErr)
+}
+
+func describeProduct(svc *marketplacecatalog.Client, entityID string) (*EntityDetails, error) {
+	resp, err := svc.DescribeEntity(context.Background(), &marketplacecatalog.DescribeEntityInput{
+		EntityId: aws.String(entityID),
+		Catalog:  aws.String("AWSMarketplace"),
+	})
+	if err != nil {
+		return nil, err
+	}
+	var details EntityDetails
+	if err := json.Unmarshal([]byte(*resp.Details), &details); err != nil {
+		return nil, err
+	}
+	return &details, nil
+}
+
+func latestVersion(details *EntityDetails) (string, error) {
+	if len(details.Versions) == 0 {
+		return "", fmt.Errorf("product has no versions")
+	}
+	latest := details.Versions[0]
+	for _, v := range details.Versions[1:] {
+		if v.CreationDate.After(latest.CreationDate) {
+			latest = v
+		}
+	}
+	return latest.VersionTitle, nil
+}
+
 func getYamlFilePath(productName, subdir, fileName string) string {
 	dirName := fmt.Sprintf("data/%s/%s", productName, subdir)
 	os.MkdirAll(dirName, 0755)
@@ -241,41 +282,13 @@ func dumpProduct(productName string) error {
 
 	svc := marketplacecatalog.NewFromConfig(cfg)
 
-	// Try different product types in order of likelihood
-	productTypes := []string{
-		"ServerProduct",
-		"ContainerProduct",
-		"DataProduct",
-		"MachinelearningProduct",
-		"SaaSProduct",
-		"ServiceProduct",
-		"SolutionProduct",
-		"SupportProduct",
-	}
-	var entityID *string
-	var lastErr error
-
-	for _, productType := range productTypes {
-		entityID, lastErr = getProductEntityID(svc, &productName, productType)
-		if lastErr == nil {
-			break
-		}
-	}
-
-	if lastErr != nil {
-		return fmt.Errorf("could not find product %s in any supported type: %v", productName, lastErr)
-	}
-
-	resp, err := svc.DescribeEntity(context.Background(), &marketplacecatalog.DescribeEntityInput{
-		EntityId: entityID,
-		Catalog:  aws.String("AWSMarketplace"),
-	})
+	entityID, _, err := findProduct(svc, productName)
 	if err != nil {
 		return err
 	}
 
-	var details EntityDetails
-	if err := json.Unmarshal([]byte(*resp.Details), &details); err != nil {
+	details, err := describeProduct(svc, entityID)
+	if err != nil {
 		return err
 	}
 
@@ -294,7 +307,7 @@ func dumpProduct(productName string) error {
 			return err
 		}
 		if bytes.Equal(existingData, data) {
-			fmt.Printf("Data for entity %s has not changed\n", *entityID)
+			fmt.Printf("Data for entity %s has not changed\n", entityID)
 			return nil
 		}
 	}
@@ -339,31 +352,9 @@ func updateProduct(productName string, noOp bool) error {
 
 	svc := marketplacecatalog.NewFromConfig(cfg)
 
-	productTypes := []string{
-		"ServerProduct",
-		"ContainerProduct",
-		"DataProduct",
-		"MachinelearningProduct",
-		"SaaSProduct",
-		"ServiceProduct",
-		"SolutionProduct",
-		"SupportProduct",
-	}
-
-	var entityID *string
-	var lastErr error
-	var foundType string
-
-	for _, productType := range productTypes {
-		entityID, lastErr = getProductEntityID(svc, &productName, productType)
-		if lastErr == nil {
-			foundType = productType
-			break
-		}
-	}
-
-	if lastErr != nil {
-		return fmt.Errorf("could not find product %s in any supported type: %v", productName, lastErr)
+	entityID, foundType, err := findProduct(svc, productName)
+	if err != nil {
+		return err
 	}
 
 	// Read the YAML file
@@ -389,7 +380,7 @@ func updateProduct(productName string, noOp bool) error {
 		ChangeName: aws.String("UpdateProductInformation"),
 		Entity: &types.Entity{
 			Type:       aws.String(entityTypeIdentifier),
-			Identifier: entityID,
+			Identifier: aws.String(entityID),
 		},
 		Details: aws.String(string(detailsBytes)),
 	}
@@ -413,6 +404,6 @@ func updateProduct(productName string, noOp bool) error {
 		return errors.New("could not start change set: " + err.Error())
 	}
 
-	fmt.Printf("Changeset created for product %s (%s) with entity ID %s\n", productName, foundType, *entityID)
+	fmt.Printf("Changeset created for product %s (%s) with entity ID %s\n", productName, foundType, entityID)
 	return nil
 }
