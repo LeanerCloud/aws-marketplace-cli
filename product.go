@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -290,7 +289,7 @@ func dumpProduct(productName string) error {
 
 	// Check if file has changed before writing to it
 	if _, err := os.Stat(fileName); err == nil {
-		existingData, err := ioutil.ReadFile(fileName)
+		existingData, err := os.ReadFile(fileName)
 		if err != nil {
 			return err
 		}
@@ -300,7 +299,7 @@ func dumpProduct(productName string) error {
 		}
 	}
 
-	if err := ioutil.WriteFile(fileName, data, 0644); err != nil {
+	if err := os.WriteFile(fileName, data, 0644); err != nil {
 		return err
 	}
 
@@ -368,7 +367,7 @@ func updateProduct(productName string, noOp bool) error {
 	}
 
 	// Read the YAML file
-	data, err := ioutil.ReadFile(getYamlFilePath(productName, "", "description"))
+	data, err := os.ReadFile(getYamlFilePath(productName, "", "description"))
 	if err != nil {
 		return err
 	}

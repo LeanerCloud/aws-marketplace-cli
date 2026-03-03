@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -133,7 +132,7 @@ func (src YAMLVersionData) convertToDst() DstVersionData {
 }
 
 func getYAMLData(fileName string) (*YAMLVersionData, error) {
-	yamlFile, err := ioutil.ReadFile(fileName)
+	yamlFile, err := os.ReadFile(fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +200,7 @@ func dumpVersions(productName string) error {
 
 		// Check if file has changed before writing to it
 		if _, err := os.Stat(fileName); err == nil {
-			existingData, err := ioutil.ReadFile(fileName)
+			existingData, err := os.ReadFile(fileName)
 			if err != nil {
 				return err
 			}
@@ -211,7 +210,7 @@ func dumpVersions(productName string) error {
 			}
 		}
 
-		if err := ioutil.WriteFile(fileName, data, 0644); err != nil {
+		if err := os.WriteFile(fileName, data, 0644); err != nil {
 			return err
 		}
 
@@ -298,12 +297,6 @@ func pushNewVersion(productName string, noOp bool, version string) error {
 		ChangeSetName: aws.String(fmt.Sprintf("Push %s version %s", productName, version)),
 	}
 
-	if noOp {
-		changeSetJSON, _ := json.MarshalIndent(changeSetInput, "", "  ")
-		fmt.Println(string(changeSetJSON))
-		return nil
-	}
-
 	_, err = svc.StartChangeSet(context.Background(), changeSetInput)
 	if err != nil {
 		return errors.New("could not start change set: " + err.Error())
@@ -317,9 +310,9 @@ func cloneProductVersion(productName, srcVersion, dstVersion string) error {
 	srcFilePath := getYamlFilePath(productName, "versions", srcVersion)
 	dstFilePath := getYamlFilePath(productName, "versions", dstVersion)
 
-	existingData, err := ioutil.ReadFile(dstFilePath)
+	existingData, err := os.ReadFile(dstFilePath)
 	if err == nil {
-		srcData, err := ioutil.ReadFile(srcFilePath)
+		srcData, err := os.ReadFile(srcFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to read source file: %v", err)
 		}
@@ -331,13 +324,13 @@ func cloneProductVersion(productName, srcVersion, dstVersion string) error {
 		return fmt.Errorf("failed to read destination file: %v", err)
 	}
 
-	input, err := ioutil.ReadFile(srcFilePath)
+	input, err := os.ReadFile(srcFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read source file: %v", err)
 	}
 	// Replace srcVersion with dstVersion inside the YAML content
 	output := bytes.Replace(input, []byte(srcVersion), []byte(dstVersion), -1)
-	err = ioutil.WriteFile(dstFilePath, output, 0644)
+	err = os.WriteFile(dstFilePath, output, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write destination file: %v", err)
 	}
