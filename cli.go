@@ -110,6 +110,49 @@ func cloneProductCmd() *cobra.Command {
 	return cmd
 }
 
+func releaseCmd() *cobra.Command {
+	var noOp bool
+	var image string
+	var releaseNotes string
+	var releaseNotesFile string
+	var baseVersion string
+
+	cmd := &cobra.Command{
+		Use:   "release [product] [new-version]",
+		Short: "Automated release: clone latest version, update image and release notes, push new version",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			productName := args[0]
+			newVersion := args[1]
+
+			if image == "" {
+				return fmt.Errorf("--image is required")
+			}
+
+			notes := releaseNotes
+			if releaseNotesFile != "" {
+				data, err := os.ReadFile(releaseNotesFile)
+				if err != nil {
+					return fmt.Errorf("failed to read release notes file: %w", err)
+				}
+				notes = string(data)
+			}
+			if notes == "" {
+				return fmt.Errorf("--release-notes or --release-notes-file is required")
+			}
+
+			return releaseVersion(productName, newVersion, image, notes, baseVersion, noOp)
+		},
+	}
+
+	cmd.Flags().StringVar(&image, "image", "", "Docker image URI (required)")
+	cmd.Flags().StringVar(&releaseNotes, "release-notes", "", "Release notes text")
+	cmd.Flags().StringVar(&releaseNotesFile, "release-notes-file", "", "Path to file containing release notes")
+	cmd.Flags().StringVar(&baseVersion, "base-version", "", "Base version to clone from (auto-detects latest if not specified)")
+	cmd.Flags().BoolVar(&noOp, "no-op", false, "Print the changeset JSON to stdout without creating the changeset")
+	return cmd
+}
+
 func mainFunc() {
 	rootCmd := &cobra.Command{Use: "aws-marketplace-cli"}
 	rootCmd.AddCommand(
@@ -119,6 +162,7 @@ func mainFunc() {
 		dumpVersionsCmd(),
 		addVersionCmd(),
 		cloneProductCmd(),
+		releaseCmd(),
 	)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
