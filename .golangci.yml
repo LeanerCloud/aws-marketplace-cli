@@ -1,0 +1,56 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - gocyclo
+    - gocognit
+    - gocritic
+    - revive
+    - misspell
+    - unparam
+    - bodyclose
+    - gosec
+    - nilerr
+    - nilnil
+    - nakedret
+    - prealloc
+    - perfsprint
+    - wastedassign
+  settings:
+    gocyclo:
+      min-complexity: 10
+    gocognit:
+      min-complexity: 10
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - hugeParam
+        - unnamedResult
+    revive:
+      rules:
+        - name: var-naming
+        - name: error-return
+        - name: increment-decrement
+        - name: blank-imports
+  exclusions:
+    rules:
+      - path: "(.+)_test\\.go"
+        linters:
+          - errcheck
+          - unparam
+          - unused
+          - gocognit
+          - gocyclo
+          - gosec
