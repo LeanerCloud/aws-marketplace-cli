@@ -77,13 +77,13 @@ func TestUpdateVersionYAML(t *testing.T) {
 
 			// Write the input YAML
 			dir := filepath.Join("data", productName, "versions")
-			os.MkdirAll(dir, 0755)
+			os.MkdirAll(dir, 0o755)
 			inputBytes, err := yaml.Marshal(tc.input)
 			if err != nil {
 				t.Fatalf("failed to marshal input: %v", err)
 			}
 			filePath := filepath.Join(dir, version+".yaml")
-			if err := os.WriteFile(filePath, inputBytes, 0644); err != nil {
+			if err := os.WriteFile(filePath, inputBytes, 0o644); err != nil {
 				t.Fatalf("failed to write input YAML: %v", err)
 			}
 

@@ -1,25 +1,37 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-func dumpVersionsCmd() *cobra.Command {
-	var productName string
+// loadReleaseNotes resolves release notes from either the inline string or a file path.
+func loadReleaseNotes(notes, notesFile string) (string, error) {
+	if notesFile != "" {
+		data, err := os.ReadFile(notesFile) //nolint:gosec // G304: notesFile is a CLI flag value provided by the operator, intentional file read
+		if err != nil {
+			return "", fmt.Errorf("failed to read release notes file: %w", err)
+		}
+		return string(data), nil
+	}
+	if notes == "" {
+		return "", errors.New("--release-notes or --release-notes-file is required")
+	}
+	return notes, nil
+}
 
+func dumpVersionsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dump-versions [product]",
 		Short: "Dump marketplace catalog data for all product versions to the all-versions.yaml YAML file",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			productName = args[0]
-			return dumpVersions(productName)
+			return dumpVersions(args[0])
 		},
 	}
-
 	return cmd
 }
 
@@ -30,29 +42,22 @@ func addVersionCmd() *cobra.Command {
 		Short: "Push local state of the product version's YAML file into a new version",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
-			productName := args[0]
-			version := args[1]
-			return pushNewVersion(productName, noOp, version)
+			return pushNewVersion(args[0], noOp, args[1])
 		},
 	}
-
 	cmd.Flags().BoolVar(&noOp, "no-op", false, "Print the changeset JSON to stdout without creating the changeset")
 	return cmd
 }
 
 func dumpProductCmd() *cobra.Command {
-	var productName string
-
 	cmd := &cobra.Command{
 		Use:   "dump [product]",
 		Short: "Dump marketplace catalog data for a product to a YAML file",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			productName = args[0]
-			return dumpProduct(productName)
+			return dumpProduct(args[0])
 		},
 	}
-
 	return cmd
 }
 
@@ -72,27 +77,22 @@ Valid product types are:
   - SupportProduct`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			productType := args[0]
-			return listProducts(productType)
+			return listProducts(args[0])
 		},
 	}
 	return cmd
 }
 
 func updateProductCmd() *cobra.Command {
-	var productName string
 	var noOp bool
-
 	cmd := &cobra.Command{
 		Use:   "update [product]",
 		Short: "Update a product's information based on the data provided in its local YAML representation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			productName = args[0]
-			return updateProduct(productName, noOp)
+			return updateProduct(args[0], noOp)
 		},
 	}
-
 	cmd.Flags().BoolVar(&noOp, "no-op", false, "Print the changeset JSON to stdout without creating the changeset")
 	return cmd
 }
@@ -103,8 +103,7 @@ func cloneProductCmd() *cobra.Command {
 		Short: "Copy the YAML data from the src version to the dst version",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(_ *cobra.Command, args []string) error {
-			productName, srcVersion, dstVersion := args[0], args[1], args[2]
-			return cloneProductVersion(productName, srcVersion, dstVersion)
+			return cloneProductVersion(args[0], args[1], args[2])
 		},
 	}
 	return cmd
@@ -112,36 +111,21 @@ func cloneProductCmd() *cobra.Command {
 
 func releaseCmd() *cobra.Command {
 	var noOp bool
-	var image string
-	var releaseNotes string
-	var releaseNotesFile string
-	var baseVersion string
+	var image, releaseNotes, releaseNotesFile, baseVersion string
 
 	cmd := &cobra.Command{
 		Use:   "release [product] [new-version]",
 		Short: "Automated release: clone latest version, update image and release notes, push new version",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
-			productName := args[0]
-			newVersion := args[1]
-
 			if image == "" {
-				return fmt.Errorf("--image is required")
+				return errors.New("--image is required")
 			}
-
-			notes := releaseNotes
-			if releaseNotesFile != "" {
-				data, err := os.ReadFile(releaseNotesFile)
-				if err != nil {
-					return fmt.Errorf("failed to read release notes file: %w", err)
-				}
-				notes = string(data)
+			notes, err := loadReleaseNotes(releaseNotes, releaseNotesFile)
+			if err != nil {
+				return err
 			}
-			if notes == "" {
-				return fmt.Errorf("--release-notes or --release-notes-file is required")
-			}
-
-			return releaseVersion(productName, newVersion, image, notes, baseVersion, noOp)
+			return releaseVersion(args[0], args[1], image, notes, baseVersion, noOp)
 		},
 	}
 
