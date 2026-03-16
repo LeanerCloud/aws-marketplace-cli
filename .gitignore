@@ -1,2 +1,4 @@
 aws-marketplace-cli
-
+coverage.out
+coverage.html
+data/
