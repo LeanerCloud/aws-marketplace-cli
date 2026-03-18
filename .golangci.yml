@@ -25,6 +25,29 @@ linters:
     - prealloc
     - perfsprint
     - wastedassign
+    - errorlint
+    - nolintlint
+    - unconvert
+    - thelper
+    - forcetypeassert
+    - intrange
+    - usestdlibvars
+    - reassign
+    - mirror
+    - durationcheck
+    - dupword
+    - nestif
+    - whitespace
+    - modernize
+    - fatcontext
+    - nilnesserr
+    - recvcheck
+    - predeclared
+    - dogsled
+    - copyloopvar
+    - exptostd
+    - contextcheck
+    - goconst
   settings:
     gocyclo:
       min-complexity: 10

@@ -40,7 +40,8 @@ func makeDescribeOutput(t *testing.T, details *EntityDetails) *marketplacecatalo
 }
 
 // foundMock returns a mock that finds productName under productType and describes it with details.
-func foundMock(productName, entityID, productType string, details *EntityDetails, t *testing.T) *mockMarketplaceClient {
+func foundMock(t *testing.T, productName, entityID, productType string, details *EntityDetails) *mockMarketplaceClient {
+	t.Helper()
 	return &mockMarketplaceClient{
 		listEntitiesFunc: func(_ context.Context, params *marketplacecatalog.ListEntitiesInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error) {
 			if *params.EntityType == productType {
@@ -75,8 +76,8 @@ func TestGetEntityTypeAndChangeType(t *testing.T) {
 		productType    string
 		wantIdentifier string
 	}{
-		{"ContainerProduct", "ContainerProduct@1.0"},
-		{"ServerProduct", "ServerProduct@1.0"},
+		{productTypeContainer, "ContainerProduct@1.0"},
+		{productTypeServer, "ServerProduct@1.0"},
 		{"SaaSProduct", "SaaSProduct@1.0"},
 		{"UnknownType", "UnknownType@1.0"},
 	}
@@ -100,8 +101,8 @@ func TestResolveProductTypes(t *testing.T) {
 		wantErr bool
 	}{
 		{"all", len(allProductTypes), false},
-		{"ContainerProduct", 1, false},
-		{"ServerProduct", 1, false},
+		{productTypeContainer, 1, false},
+		{productTypeServer, 1, false},
 		{"InvalidType", 0, true},
 		{"", 0, true},
 	}
@@ -211,7 +212,7 @@ func TestCollectProductNames(t *testing.T) {
 				}, nil
 			},
 		}
-		names, err := collectProductNames(context.Background(), svc, "ContainerProduct")
+		names, err := collectProductNames(context.Background(), svc, productTypeContainer)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -226,7 +227,7 @@ func TestCollectProductNames(t *testing.T) {
 				return nil, &types.ValidationException{Message: aws.String("The entity type is invalid")}
 			},
 		}
-		names, err := collectProductNames(context.Background(), svc, "ContainerProduct")
+		names, err := collectProductNames(context.Background(), svc, productTypeContainer)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -241,11 +242,11 @@ func TestCollectProductNames(t *testing.T) {
 				return nil, errors.New("network failure")
 			},
 		}
-		_, err := collectProductNames(context.Background(), svc, "ContainerProduct")
+		_, err := collectProductNames(context.Background(), svc, productTypeContainer)
 		if err == nil {
 			t.Fatal("expected error")
 		}
-		if !strings.Contains(err.Error(), "ContainerProduct") {
+		if !strings.Contains(err.Error(), productTypeContainer) {
 			t.Errorf("error %q does not mention product type", err.Error())
 		}
 	})
@@ -266,7 +267,7 @@ func TestListProductsWithClient(t *testing.T) {
 				return &marketplacecatalog.ListEntitiesOutput{}, nil
 			},
 		}
-		if err := listProductsWithClient(svc, "ContainerProduct"); err != nil {
+		if err := listProductsWithClient(svc, productTypeContainer); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -279,7 +280,7 @@ func TestListProductsWithClient(t *testing.T) {
 				}, nil
 			},
 		}
-		if err := listProductsWithClient(svc, "ContainerProduct"); err != nil {
+		if err := listProductsWithClient(svc, productTypeContainer); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -290,7 +291,7 @@ func TestListProductsWithClient(t *testing.T) {
 				return nil, errors.New("list failed")
 			},
 		}
-		if err := listProductsWithClient(svc, "ContainerProduct"); err == nil {
+		if err := listProductsWithClient(svc, productTypeContainer); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -304,7 +305,7 @@ func TestGetProductEntityID(t *testing.T) {
 			},
 		}
 		name := "MyProduct"
-		id, err := getProductEntityID(svc, &name, "ContainerProduct")
+		id, err := getProductEntityID(svc, &name, productTypeContainer)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -320,7 +321,7 @@ func TestGetProductEntityID(t *testing.T) {
 			},
 		}
 		name := "X"
-		if _, err := getProductEntityID(svc, &name, "ContainerProduct"); err == nil {
+		if _, err := getProductEntityID(svc, &name, productTypeContainer); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -332,7 +333,7 @@ func TestGetProductEntityID(t *testing.T) {
 			},
 		}
 		name := "MyProduct"
-		if _, err := getProductEntityID(svc, &name, "ContainerProduct"); err == nil {
+		if _, err := getProductEntityID(svc, &name, productTypeContainer); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -344,7 +345,7 @@ func TestGetProductEntityID(t *testing.T) {
 			},
 		}
 		name := "X"
-		if _, err := getProductEntityID(svc, &name, "ContainerProduct"); err == nil {
+		if _, err := getProductEntityID(svc, &name, productTypeContainer); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -354,7 +355,7 @@ func TestFindProduct(t *testing.T) {
 	t.Run("found as ContainerProduct", func(t *testing.T) {
 		svc := &mockMarketplaceClient{
 			listEntitiesFunc: func(_ context.Context, params *marketplacecatalog.ListEntitiesInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error) {
-				if *params.EntityType == "ContainerProduct" {
+				if *params.EntityType == productTypeContainer {
 					return makeListOutput("MyProduct", "eid-42"), nil
 				}
 				return &marketplacecatalog.ListEntitiesOutput{}, nil
@@ -367,7 +368,7 @@ func TestFindProduct(t *testing.T) {
 		if eid != "eid-42" {
 			t.Errorf("entityID = %q", eid)
 		}
-		if pt != "ContainerProduct" {
+		if pt != productTypeContainer {
 			t.Errorf("productType = %q", pt)
 		}
 	})
@@ -513,7 +514,7 @@ func TestDumpProductWithClient(t *testing.T) {
 		_ = os.Chdir(tmpDir)
 		defer func() { _ = os.Chdir(origDir) }()
 
-		svc := foundMock("MyProduct", "eid-1", "ContainerProduct", &EntityDetails{}, t)
+		svc := foundMock(t, "MyProduct", "eid-1", productTypeContainer, &EntityDetails{})
 		if err := dumpProductWithClient(svc, "MyProduct"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -536,7 +537,7 @@ func TestDumpProductWithClient(t *testing.T) {
 	t.Run("describeProduct error propagated", func(t *testing.T) {
 		svc := &mockMarketplaceClient{
 			listEntitiesFunc: func(_ context.Context, params *marketplacecatalog.ListEntitiesInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error) {
-				if *params.EntityType == "ContainerProduct" {
+				if *params.EntityType == productTypeContainer {
 					return makeListOutput("MyProduct", "eid-1"), nil
 				}
 				return &marketplacecatalog.ListEntitiesOutput{}, nil
@@ -580,7 +581,7 @@ func TestUpdateProductWithClient(t *testing.T) {
 		defer func() { _ = os.Chdir(origDir) }()
 
 		setupDescriptionFile(t)
-		svc := &mockMarketplaceClient{listEntitiesFunc: listFuncFoundAs("ContainerProduct")}
+		svc := &mockMarketplaceClient{listEntitiesFunc: listFuncFoundAs(productTypeContainer)}
 		if err := updateProductWithClient(svc, "MyProduct", true); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -595,7 +596,7 @@ func TestUpdateProductWithClient(t *testing.T) {
 		setupDescriptionFile(t)
 		called := false
 		svc := &mockMarketplaceClient{
-			listEntitiesFunc: listFuncFoundAs("ContainerProduct"),
+			listEntitiesFunc: listFuncFoundAs(productTypeContainer),
 			startChangeSetFunc: func(_ context.Context, _ *marketplacecatalog.StartChangeSetInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.StartChangeSetOutput, error) {
 				called = true
 				return &marketplacecatalog.StartChangeSetOutput{}, nil
@@ -615,7 +616,7 @@ func TestUpdateProductWithClient(t *testing.T) {
 		_ = os.Chdir(tmpDir)
 		defer func() { _ = os.Chdir(origDir) }()
 
-		svc := &mockMarketplaceClient{listEntitiesFunc: listFuncFoundAs("ContainerProduct")}
+		svc := &mockMarketplaceClient{listEntitiesFunc: listFuncFoundAs(productTypeContainer)}
 		if err := updateProductWithClient(svc, "MyProduct", false); err == nil {
 			t.Fatal("expected error")
 		}

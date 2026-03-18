@@ -114,7 +114,7 @@ func TestReleaseVersionWithClient(t *testing.T) {
 		defer func() { _ = os.Chdir(origDir) }()
 
 		details := makeEntityDetailsWithVersion(t, "v1.0")
-		svc := foundMock("MyProduct", "eid-1", "ContainerProduct", details, t)
+		svc := foundMock(t, "MyProduct", "eid-1", productTypeContainer, details)
 
 		err := releaseVersionWithClient(svc, "MyProduct", "v2.0", "ecr:v2", "Release notes", "v1.0", true)
 		if err != nil {
@@ -130,7 +130,7 @@ func TestReleaseVersionWithClient(t *testing.T) {
 	})
 
 	t.Run("validation failure returns error immediately", func(t *testing.T) {
-		svc := foundMock("MyProduct", "eid-1", "ContainerProduct", &EntityDetails{}, t)
+		svc := foundMock(t, "MyProduct", "eid-1", productTypeContainer, &EntityDetails{})
 		err := releaseVersionWithClient(svc, "MyProduct", "v2.0", "", "notes", "v1.0", true)
 		if err == nil {
 			t.Fatal("expected error for missing image")
@@ -152,7 +152,7 @@ func TestReleaseVersionWithClient(t *testing.T) {
 	t.Run("describeProduct error propagated", func(t *testing.T) {
 		svc := &mockMarketplaceClient{
 			listEntitiesFunc: func(_ context.Context, params *marketplacecatalog.ListEntitiesInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error) {
-				if *params.EntityType == "ContainerProduct" {
+				if *params.EntityType == productTypeContainer {
 					return makeListOutput("MyProduct", "eid-1"), nil
 				}
 				return &marketplacecatalog.ListEntitiesOutput{}, nil

@@ -222,7 +222,7 @@ func pushNewVersionWithClient(svc marketplaceClient, productName string, noOp bo
 
 	entityTypeIdentifier, _ := getEntityTypeAndChangeType(foundType)
 	versionChangeType := "AddDeliveryOptions"
-	if foundType == "ServerProduct" {
+	if foundType == productTypeServer {
 		versionChangeType = "CreateVersion"
 	}
 
@@ -273,23 +273,23 @@ func cloneProductVersion(productName, srcVersion, dstVersion string) error {
 	if err == nil {
 		srcData, err := os.ReadFile(srcFilePath) //nolint:gosec // G304: path is constructed internally, not from raw user input
 		if err != nil {
-			return fmt.Errorf("failed to read source file: %v", err)
+			return fmt.Errorf("failed to read source file: %w", err)
 		}
 		if bytes.Equal(existingData, srcData) {
 			fmt.Printf("Data for product %s version %s has not changed\n", productName, srcVersion)
 			return nil
 		}
 	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to read destination file: %v", err)
+		return fmt.Errorf("failed to read destination file: %w", err)
 	}
 
 	input, err := os.ReadFile(srcFilePath) //nolint:gosec // G304: path is constructed internally, not from raw user input
 	if err != nil {
-		return fmt.Errorf("failed to read source file: %v", err)
+		return fmt.Errorf("failed to read source file: %w", err)
 	}
 	output := bytes.ReplaceAll(input, []byte(srcVersion), []byte(dstVersion))
 	if err := os.WriteFile(dstFilePath, output, 0o644); err != nil { //nolint:gosec // G306: 0644 is intentional — user-readable YAML version files
-		return fmt.Errorf("failed to write destination file: %v", err)
+		return fmt.Errorf("failed to write destination file: %w", err)
 	}
 
 	fmt.Printf("Data written to %s\n", dstFilePath)

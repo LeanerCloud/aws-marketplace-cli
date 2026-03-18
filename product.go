@@ -114,9 +114,14 @@ type EntityDetails struct {
 	} `json:"Repositories"`
 }
 
+const (
+	productTypeServer    = "ServerProduct"
+	productTypeContainer = "ContainerProduct"
+)
+
 var allProductTypes = []string{
-	"ServerProduct",
-	"ContainerProduct",
+	productTypeServer,
+	productTypeContainer,
 	"DataProduct",
 	"MachinelearningProduct",
 	"SaaSProduct",
@@ -127,8 +132,8 @@ var allProductTypes = []string{
 
 // entityTypeVersionMap maps product types to their versioned AWS entity type identifiers.
 var entityTypeVersionMap = map[string]string{
-	"ServerProduct":          "ServerProduct@1.0",
-	"ContainerProduct":       "ContainerProduct@1.0",
+	productTypeServer:    "ServerProduct@1.0",
+	productTypeContainer: "ContainerProduct@1.0",
 	"DataProduct":            "DataProduct@1.0",
 	"MachinelearningProduct": "MachinelearningProduct@1.0",
 	"SaaSProduct":            "SaaSProduct@1.0",
@@ -175,7 +180,7 @@ func paginateEntityNames(ctx context.Context, svc marketplaceClient, params *mar
 		params.NextToken = resp.NextToken
 		resp, err = svc.ListEntities(ctx, params)
 		if err != nil {
-			return nil, fmt.Errorf("pagination: %v", err)
+			return nil, fmt.Errorf("pagination: %w", err)
 		}
 	}
 	return names, nil
@@ -194,7 +199,7 @@ func collectProductNames(ctx context.Context, svc marketplaceClient, productType
 		if errors.As(err, &ve) && strings.Contains(err.Error(), "entity type") {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("error listing %s: %v", productType, err)
+		return nil, fmt.Errorf("error listing %s: %w", productType, err)
 	}
 	return names, nil
 }
@@ -279,7 +284,7 @@ func findProduct(svc marketplaceClient, productName string) (entityID, productTy
 		}
 		lastErr = e
 	}
-	return "", "", fmt.Errorf("could not find product %s in any supported type: %v", productName, lastErr)
+	return "", "", fmt.Errorf("could not find product %s in any supported type: %w", productName, lastErr)
 }
 
 func describeProduct(svc marketplaceClient, entityID string) (*EntityDetails, error) {

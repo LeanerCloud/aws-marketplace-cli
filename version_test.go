@@ -184,7 +184,7 @@ func TestDumpVersionsWithClient(t *testing.T) {
 		defer func() { _ = os.Chdir(origDir) }()
 
 		details := makeEntityDetailsWithVersion(t, "v1.0")
-		svc := foundMock("MyProduct", "eid-1", "ContainerProduct", details, t)
+		svc := foundMock(t, "MyProduct", "eid-1", productTypeContainer, details)
 
 		if err := dumpVersionsWithClient(svc, "MyProduct"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -213,7 +213,7 @@ func TestDumpVersionsWithClient(t *testing.T) {
 	t.Run("describeProduct error propagated", func(t *testing.T) {
 		svc := &mockMarketplaceClient{
 			listEntitiesFunc: func(_ context.Context, params *marketplacecatalog.ListEntitiesInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error) {
-				if *params.EntityType == "ContainerProduct" {
+				if *params.EntityType == productTypeContainer {
 					return makeListOutput("MyProduct", "eid-1"), nil
 				}
 				return &marketplacecatalog.ListEntitiesOutput{}, nil
@@ -267,7 +267,7 @@ func TestPushNewVersionWithClient(t *testing.T) {
 			Sources:         []Sources{{Images: []string{"ecr:v1"}}},
 			Deliveryoptions: []Deliveryoptions{{Title: "Option A"}},
 		})
-		svc := &mockMarketplaceClient{listEntitiesFunc: listFoundAs("ContainerProduct")}
+		svc := &mockMarketplaceClient{listEntitiesFunc: listFoundAs(productTypeContainer)}
 		if err := pushNewVersionWithClient(svc, "MyProduct", true, "v1.0"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -282,7 +282,7 @@ func TestPushNewVersionWithClient(t *testing.T) {
 		writeVersionFile(t, "v1.0", YAMLVersionData{Versiontitle: "v1.0"})
 		var gotChangeType string
 		svc := &mockMarketplaceClient{
-			listEntitiesFunc: listFoundAs("ContainerProduct"),
+			listEntitiesFunc: listFoundAs(productTypeContainer),
 			startChangeSetFunc: func(_ context.Context, params *marketplacecatalog.StartChangeSetInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.StartChangeSetOutput, error) {
 				gotChangeType = *params.ChangeSet[0].ChangeType
 				return &marketplacecatalog.StartChangeSetOutput{}, nil
@@ -305,7 +305,7 @@ func TestPushNewVersionWithClient(t *testing.T) {
 		writeVersionFile(t, "v1.0", YAMLVersionData{Versiontitle: "v1.0"})
 		var gotChangeType string
 		svc := &mockMarketplaceClient{
-			listEntitiesFunc: listFoundAs("ServerProduct"),
+			listEntitiesFunc: listFoundAs(productTypeServer),
 			startChangeSetFunc: func(_ context.Context, params *marketplacecatalog.StartChangeSetInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.StartChangeSetOutput, error) {
 				gotChangeType = *params.ChangeSet[0].ChangeType
 				return &marketplacecatalog.StartChangeSetOutput{}, nil
@@ -325,7 +325,7 @@ func TestPushNewVersionWithClient(t *testing.T) {
 		_ = os.Chdir(tmpDir)
 		defer func() { _ = os.Chdir(origDir) }()
 
-		svc := &mockMarketplaceClient{listEntitiesFunc: listFoundAs("ContainerProduct")}
+		svc := &mockMarketplaceClient{listEntitiesFunc: listFoundAs(productTypeContainer)}
 		err := pushNewVersionWithClient(svc, "MyProduct", false, "nonexistent")
 		if err == nil {
 			t.Fatal("expected error")
@@ -343,7 +343,7 @@ func TestPushNewVersionWithClient(t *testing.T) {
 
 		writeVersionFile(t, "v1.0", YAMLVersionData{Versiontitle: "v1.0"})
 		svc := &mockMarketplaceClient{
-			listEntitiesFunc: listFoundAs("ContainerProduct"),
+			listEntitiesFunc: listFoundAs(productTypeContainer),
 			startChangeSetFunc: func(_ context.Context, _ *marketplacecatalog.StartChangeSetInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.StartChangeSetOutput, error) {
 				return nil, errors.New("change set failed")
 			},
