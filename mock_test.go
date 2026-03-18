@@ -6,6 +6,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/marketplacecatalog"
 )
 
+const testProductName = "MyProduct"
+
 type mockMarketplaceClient struct {
 	listEntitiesFunc   func(ctx context.Context, params *marketplacecatalog.ListEntitiesInput, optFns ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error)
 	describeEntityFunc func(ctx context.Context, params *marketplacecatalog.DescribeEntityInput, optFns ...func(*marketplacecatalog.Options)) (*marketplacecatalog.DescribeEntityOutput, error)

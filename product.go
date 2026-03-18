@@ -262,6 +262,10 @@ func getProductEntityID(svc marketplaceClient, productName *string, productType 
 	}
 	res, err := svc.ListEntities(context.Background(), input)
 	if err != nil {
+		var ve *types.ValidationException
+		if errors.As(err, &ve) && strings.Contains(err.Error(), "entity type") {
+			return nil, fmt.Errorf("entity not found: %s of type %s", *productName, productType)
+		}
 		return nil, err
 	}
 	if len(res.EntitySummaryList) == 0 {

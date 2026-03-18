@@ -304,7 +304,7 @@ func TestGetProductEntityID(t *testing.T) {
 				return makeListOutput("MyProduct", "eid-123"), nil
 			},
 		}
-		name := "MyProduct"
+		name := testProductName
 		id, err := getProductEntityID(svc, &name, productTypeContainer)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -332,7 +332,7 @@ func TestGetProductEntityID(t *testing.T) {
 				return makeListOutput("OtherProduct", "eid-999"), nil
 			},
 		}
-		name := "MyProduct"
+		name := testProductName
 		if _, err := getProductEntityID(svc, &name, productTypeContainer); err == nil {
 			t.Fatal("expected error")
 		}
@@ -347,6 +347,24 @@ func TestGetProductEntityID(t *testing.T) {
 		name := "X"
 		if _, err := getProductEntityID(svc, &name, productTypeContainer); err == nil {
 			t.Fatal("expected error")
+		}
+	})
+
+	t.Run("ValidationException for invalid entity type treated as not found", func(t *testing.T) {
+		svc := &mockMarketplaceClient{
+			listEntitiesFunc: func(_ context.Context, _ *marketplacecatalog.ListEntitiesInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error) {
+				return nil, &types.ValidationException{Message: aws.String("Requested entity type 'SupportProduct' is invalid.")}
+			},
+		}
+		name := testProductName
+		_, err := getProductEntityID(svc, &name, "SupportProduct")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		// Must NOT bubble up as a ValidationException — treated as plain not-found
+		var ve *types.ValidationException
+		if errors.As(err, &ve) {
+			t.Errorf("ValidationException should be suppressed, got: %v", err)
 		}
 	})
 }
