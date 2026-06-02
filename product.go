@@ -290,8 +290,12 @@ func findProduct(svc marketplaceClient, productName string) (entityID, productTy
 			// DescribeEntity so StartChangeSet gets the correct entity type and change
 			// type; otherwise the wrong combination (e.g. ServerProduct@1.0 +
 			// CreateVersion) is rejected with a ValidationException.
-			if actual, de := describeEntityType(svc, *eid); de == nil && actual != "" {
+			actual, de := describeEntityType(svc, *eid)
+			if de == nil && actual != "" {
 				return *eid, actual, nil
+			}
+			if de != nil {
+				fmt.Printf("warning: DescribeEntity failed for %s, falling back to list-filter type %s: %v\n", *eid, pt, de)
 			}
 			return *eid, pt, nil
 		}
