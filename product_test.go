@@ -391,6 +391,29 @@ func TestFindProduct(t *testing.T) {
 		}
 	})
 
+	t.Run("dual-match resolves to authoritative type via DescribeEntity", func(t *testing.T) {
+		svc := &mockMarketplaceClient{
+			// The entity surfaces under the ServerProduct filter (checked first) even
+			// though it is authoritatively a ContainerProduct.
+			listEntitiesFunc: func(_ context.Context, params *marketplacecatalog.ListEntitiesInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error) {
+				if *params.EntityType == productTypeServer || *params.EntityType == productTypeContainer {
+					return makeListOutput("MyProduct", "eid-42"), nil
+				}
+				return &marketplacecatalog.ListEntitiesOutput{}, nil
+			},
+			describeEntityFunc: func(_ context.Context, _ *marketplacecatalog.DescribeEntityInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.DescribeEntityOutput, error) {
+				return &marketplacecatalog.DescribeEntityOutput{EntityType: aws.String("ContainerProduct@1.0")}, nil
+			},
+		}
+		_, pt, err := findProduct(svc, "MyProduct")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if pt != productTypeContainer {
+			t.Errorf("productType = %q, want %q (authoritative type from DescribeEntity)", pt, productTypeContainer)
+		}
+	})
+
 	t.Run("not found in any type", func(t *testing.T) {
 		svc := &mockMarketplaceClient{
 			listEntitiesFunc: func(_ context.Context, _ *marketplacecatalog.ListEntitiesInput, _ ...func(*marketplacecatalog.Options)) (*marketplacecatalog.ListEntitiesOutput, error) {
