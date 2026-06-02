@@ -19,6 +19,9 @@ func (m *mockMarketplaceClient) ListEntities(ctx context.Context, params *market
 }
 
 func (m *mockMarketplaceClient) DescribeEntity(ctx context.Context, params *marketplacecatalog.DescribeEntityInput, optFns ...func(*marketplacecatalog.Options)) (*marketplacecatalog.DescribeEntityOutput, error) {
+	if m.describeEntityFunc == nil {
+		return &marketplacecatalog.DescribeEntityOutput{}, nil
+	}
 	return m.describeEntityFunc(ctx, params, optFns...)
 }
 

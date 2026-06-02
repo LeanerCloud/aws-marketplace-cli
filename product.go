@@ -132,8 +132,8 @@ var allProductTypes = []string{
 
 // entityTypeVersionMap maps product types to their versioned AWS entity type identifiers.
 var entityTypeVersionMap = map[string]string{
-	productTypeServer:    "ServerProduct@1.0",
-	productTypeContainer: "ContainerProduct@1.0",
+	productTypeServer:        "ServerProduct@1.0",
+	productTypeContainer:     "ContainerProduct@1.0",
 	"DataProduct":            "DataProduct@1.0",
 	"MachinelearningProduct": "MachinelearningProduct@1.0",
 	"SaaSProduct":            "SaaSProduct@1.0",
@@ -284,11 +284,41 @@ func findProduct(svc marketplaceClient, productName string) (entityID, productTy
 	for _, pt := range allProductTypes {
 		eid, e := getProductEntityID(svc, &productName, pt)
 		if e == nil {
+			// A single entity can match more than one ListEntities type filter (e.g. a
+			// ContainerProduct also surfaces under the ServerProduct filter), and the
+			// filter we matched on is not authoritative. Resolve the real type from
+			// DescribeEntity so StartChangeSet gets the correct entity type and change
+			// type; otherwise the wrong combination (e.g. ServerProduct@1.0 +
+			// CreateVersion) is rejected with a ValidationException.
+			if actual, de := describeEntityType(svc, *eid); de == nil && actual != "" {
+				return *eid, actual, nil
+			}
 			return *eid, pt, nil
 		}
 		lastErr = e
 	}
 	return "", "", fmt.Errorf("could not find product %s in any supported type: %w", productName, lastErr)
+}
+
+// describeEntityType returns the authoritative product type for an entity (for
+// example "ContainerProduct"), derived from DescribeEntity's EntityType
+// ("ContainerProduct@1.0") with the version suffix stripped.
+func describeEntityType(svc marketplaceClient, entityID string) (string, error) {
+	resp, err := svc.DescribeEntity(context.Background(), &marketplacecatalog.DescribeEntityInput{
+		EntityId: aws.String(entityID),
+		Catalog:  aws.String("AWSMarketplace"),
+	})
+	if err != nil {
+		return "", err
+	}
+	if resp == nil || resp.EntityType == nil {
+		return "", nil
+	}
+	t := *resp.EntityType
+	if i := strings.Index(t, "@"); i >= 0 {
+		t = t[:i]
+	}
+	return t, nil
 }
 
 func describeProduct(svc marketplaceClient, entityID string) (*EntityDetails, error) {
